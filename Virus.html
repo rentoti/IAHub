@@ -27,6 +27,8 @@
   <div class="file-list" id="fileList"></div>
 
   <button id="runFileBtn">User: Open "Game.exe"</button>
+  <button id="scanBtn">Simulate Antivirus Scan</button>
+  <button id="resetBtn">Reset Simulation</button>
 
   <div class="log" id="log">
     <strong>Activity Log:</strong><br>
@@ -44,6 +46,8 @@
     const fileListDiv = document.getElementById("fileList");
     const logDiv = document.getElementById("log");
     const runBtn = document.getElementById("runFileBtn");
+    const scanBtn = document.getElementById("scanBtn");
+    const resetBtn = document.getElementById("resetBtn");
 
     function renderFiles() {
       fileListDiv.innerHTML = "<strong>Simulated Files:</strong><br>";
@@ -67,6 +71,9 @@
       logDiv.innerHTML += msg + "<br>";
     }
 
+    // Keep a copy of original files so we can reset the simulation
+    const originalFiles = JSON.parse(JSON.stringify(files));
+
     // Simulated virus object
     const virus = {
       name: "JS-Demo-Virus",
@@ -76,20 +83,30 @@
         log(`Virus attached to host file: ${hostFile.name}`);
       },
       // "Corrupts" other files by changing their content text
-      corruptFiles() {
-        log("Virus starts corrupting other files...");
-        files.forEach(file => {
-          if (file.name !== "Game.exe") {
-            file.corrupted = true;
-            file.content = "[CORRUPTED DATA]";
-            log(`File corrupted: ${file.name}`);
+      // Corruption happens step by step to better show the spread.
+      corruptFilesStepByStep() {
+        log("Virus starts corrupting other files (spreading step by step)...");
+        const targets = files.filter(f => f.name !== "Game.exe");
+        let index = 0;
+
+        function infectNext() {
+          if (index >= targets.length) {
+            log("Virus finished corrupting all reachable files.");
+            return;
           }
-        });
+          const file = targets[index++];
+          file.corrupted = true;
+          file.content = "[CORRUPTED DATA]";
+          log(`File corrupted: ${file.name}`);
+          renderFiles();
+          setTimeout(infectNext, 800);
+        }
+
+        infectNext();
       },
       // Payload when user runs the infected host file
       executePayload() {
-        this.corruptFiles();
-        renderFiles();
+        this.corruptFilesStepByStep();
       }
     };
 
@@ -110,6 +127,40 @@
         runBtn.disabled = true;
         runBtn.textContent = "Game.exe (already executed)";
       }, 1000);
+    });
+    
+    // Simulate an antivirus scan that detects and "cleans" the virus
+    scanBtn.addEventListener("click", () => {
+      log("<hr>Antivirus scan started...");
+      files.forEach(file => {
+        if (file.infected || file.corrupted) {
+          log(`Antivirus cleaned: ${file.name}`);
+        }
+        file.infected = false;
+        file.corrupted = false;
+        if (file.name !== "Game.exe") {
+          // Restore notice that file data is lost in this simulation
+          file.content = "[DATA LOST – RESTORED FROM BACKUP IN REAL SCENARIO]";
+        } else {
+          file.content = "Legit game binary";
+        }
+      });
+      renderFiles();
+      log("Antivirus scan finished. In this demo, corrupted files are marked as restored.");
+    });
+
+    // Reset everything back to the initial clean state
+    resetBtn.addEventListener("click", () => {
+      log("<hr>Simulation reset to initial state.");
+      for (let i = 0; i < files.length; i++) {
+        files[i].name = originalFiles[i].name;
+        files[i].content = originalFiles[i].content;
+        files[i].infected = originalFiles[i].infected;
+        files[i].corrupted = originalFiles[i].corrupted;
+      }
+      runBtn.disabled = false;
+      runBtn.textContent = 'User: Open "Game.exe"';
+      renderFiles();
     });
 
     renderFiles();
